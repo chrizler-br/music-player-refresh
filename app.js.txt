@@ -1,0 +1,194 @@
+class MusicPlayer {
+    constructor() {
+        this.audio = new Audio();
+        this.playlist = [];
+        this.currentTrack = 0;
+        this.isPlaying = false;
+        this.userTracks = JSON.parse(localStorage.getItem('userTracks')) || [];
+        this.init();
+    }
+
+    async init() {
+        // Load free music samples (replace with real API calls)
+        this.loadSampleTracks();
+        this.bindEvents();
+        this.render();
+        this.loadFreeMusic();
+    }
+
+    loadSampleTracks() {
+        // Sample tracks - REPLACE WITH REAL FREE MUSIC API
+        this.playlist = [
+            { title: 'Chill Beats', artist: 'Free Music Archive', duration: '3:45', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
+            { title: 'Summer Vibes', artist: 'Jamendo', duration: '4:12', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
+            { title: 'LoFi Dreams', artist: 'Creative Commons', duration: '3:28', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
+            { title: 'Jazz Nights', artist: 'Public Domain', duration: '5:01', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
+            { title: 'Electronic Flow', artist: 'Free Music', duration: '4:33', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' }
+        ];
+    }
+
+    async loadFreeMusic() {
+        try {
+            // Free Music Archive API (get free key at freemusicarchive.org/api)
+            const response = await fetch('https://freemusicarchive.org/api/get/tracks.json?api_key=your_free_key&limit=10');
+            const data = await response.json();
+            // Process and add to playlist
+        } catch (e) {
+            console.log('Using sample tracks');
+        }
+    }
+
+    bindEvents() {
+        this.audio.addEventListener('play', () => {
+            this.isPlaying = true;
+            this.render();
+        });
+        
+        this.audio.addEventListener('pause', () => {
+            this.isPlaying = false;
+            this.render();
+        });
+
+        this.audio.addEventListener('ended', () => {
+            this.nextTrack();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.togglePlay();
+            }
+            if (e.code === 'ArrowRight') this.nextTrack();
+            if (e.code === 'ArrowLeft') this.prevTrack();
+        });
+    }
+
+    playTrack(index) {
+        this.currentTrack = index;
+        const track = [...this.playlist, ...this.userTracks][index];
+        this.audio.src = track.src;
+        this.audio.play();
+        this.render();
+        this.saveCurrentTrack();
+    }
+
+    togglePlay() {
+        if (this.isPlaying) {
+            this.audio.pause();
+        } else {
+            this.audio.play();
+        }
+    }
+
+    nextTrack() {
+        const totalTracks = this.playlist.length + this.userTracks.length;
+        this.currentTrack = (this.currentTrack + 1) % totalTracks;
+        this.playTrack(this.currentTrack);
+    }
+
+    prevTrack() {
+        const totalTracks = this.playlist.length + this.userTracks.length;
+        this.currentTrack = (this.currentTrack - 1 + totalTracks) % totalTracks;
+        this.playTrack(this.currentTrack);
+    }
+
+    async handleFileUpload(file) {
+        const track = {
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            artist: 'User Upload',
+            duration: '00:00',
+            src: URL.createObjectURL(file),
+            file: file
+        };
+
+        this.userTracks.unshift(track);
+        localStorage.setItem('userTracks', JSON.stringify(this.userTracks));
+        this.render();
+    }
+
+    saveCurrentTrack() {
+        localStorage.setItem('currentTrack', this.currentTrack);
+    }
+
+    render() {
+        const allTracks = [...this.playlist, ...this.userTracks];
+        const currentTrack = allTracks[this.currentTrack];
+
+        document.getElementById('app').innerHTML = `
+            <div class="header">
+                <h1>🎵 Music Station</h1>
+                <p>Free Unlimited Music Player</p>
+            </div>
+
+            <div class="player-container">
+                <div class="audio-controls">
+                    <button class="control-btn" onclick="player.prevTrack()" title="Previous">⏮</button>
+                    <button class="control-btn" onclick="player.togglePlay()" id="playBtn" title="Play/Pause">
+                        ${this.isPlaying ? '⏸' : '▶'}
+                    </button>
+                    <button class="control-btn" onclick="player.nextTrack()" title="Next">⏭</button>
+                </div>
+                
+                <audio id="audio-player" controls></audio>
+                
+                <div id="current-track">
+                    ${currentTrack ? `${currentTrack.title} - ${currentTrack.artist}` : 'Select a track'}
+                </div>
+            </div>
+
+            <div class="playlist">
+                ${allTracks.map((track, index) => `
+                    <div class="track-item ${index === this.currentTrack ? 'active' : ''}" 
+                         onclick="player.playTrack(${index})" 
+                         title="Click to play">
+                        <div class="track-title">
+                            🎵 ${track.title}
+                        </div>
+                        <div class="track-duration">${track.artist} • ${track.duration}</div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="upload-section">
+                <h3>📁 Upload Your Music</h3>
+                <p>Drag & drop or click to upload MP3 files (stored locally)</p>
+                <input type="file" id="fileInput" multiple accept="audio/*" style="display:none">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    Choose Files
+                </button>
+            </div>
+        `;
+
+        // File upload handler
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            Array.from(e.target.files).forEach(file => {
+                this.handleFileUpload(file);
+            });
+        });
+
+        // Drag & drop
+        document.querySelector('.upload-section').addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.currentTarget.style.background = 'rgba(78, 205, 196, 0.1)';
+        });
+
+        document.querySelector('.upload-section').addEventListener('dragleave', (e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+        });
+
+        document.querySelector('.upload-section').addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+            Array.from(e.dataTransfer.files).forEach(file => {
+                if (file.type.startsWith('audio/')) {
+                    this.handleFileUpload(file);
+                }
+            });
+        });
+
+        document.getElementById('audio-player').src = this.audio.src;
+    }
+}
+
+// Initialize when page loads
+const player = new MusicPlayer();
